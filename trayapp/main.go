@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"mp3mirror/mp3mirror"
 	"mp3mirror/trayapp/icon"
 
@@ -28,7 +29,6 @@ func onReady() {
 		Folders:          []string{},
 		FoldersRecursive: []string{watchFolder},
 		MirrorFolder:     "",
-		ConvertBitrate:   mp3mirror.DefaultConvertBitrate,
 		ConvertTimeout:   mp3mirror.DefaultConvertTimeout,
 		RefreshInterval:  mp3mirror.DefaultRefreshInterval,
 	})
@@ -44,18 +44,25 @@ func onReady() {
 	}()
 
 	go func() {
-		if err := watcher.Run(); err != nil {
-			systray.Quit()
-			dialog.Message("Watcher error: %v", err).Title("Watcher error").Error()
+		for {
+			select {
+			case file := <-watcher.ConvertStart:
+				fmt.Printf("Start convert: %s\n", file)
+			case file := <-watcher.ConvertFinishOK:
+				fmt.Printf("Finish convert: %s\n", file)
+				notify.Notify("MP3mirror", "", file, "")
+			case err := <-watcher.ConvertFinishError:
+				fmt.Printf("Finish with Error: %v\n", err)
+				//dialog.Message("Convert error: %v", err).Title("Convert error").Error()
+				notify.Alert("MP3mirror", "", fmt.Sprintf("Convert error: %v", err), "")
+			}
 		}
 	}()
 
 	go func() {
-		for {
-			select {
-			case convertedfile := <-watcher.Converted:
-				notify.Notify("MP3mirror", "", convertedfile, "")
-			}
+		if err := watcher.Run(); err != nil {
+			systray.Quit()
+			dialog.Message("Watcher error: %v", err).Title("Watcher error").Error()
 		}
 	}()
 }

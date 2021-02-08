@@ -2,7 +2,6 @@ package mp3mirror
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"time"
 )
@@ -12,17 +11,17 @@ import (
 // Converter to mp3
 type Converter struct {
 	Timeout time.Duration
-	Bitrate uint
 }
 
 // Convert from wav/aiff to mp3
-func (c *Converter) Convert(from string, to string) error {
+func (c *Converter) Convert(from, to string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), c.Timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-i", from, "-b:a", fmt.Sprintf("%vk", c.Bitrate), to)
+	//cmd := exec.CommandContext(ctx, "ffmpeg", "-i", from, "-b:a", "320k", to)
+	cmd := exec.CommandContext(ctx, "/usr/local/bin/lame", "--silent", "-h", "-V2", from, to)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("convert error: %v", err)
+		return err
 	}
 	return nil
 }

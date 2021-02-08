@@ -19,7 +19,6 @@ const (
 
 // default values
 const (
-	DefaultConvertBitrate  = 320
 	DefaultConvertTimeout  = 1 * time.Minute
 	DefaultRefreshInterval = 1 * time.Second
 )
@@ -29,7 +28,6 @@ type WatcherConfig struct {
 	Folders          []string
 	FoldersRecursive []string
 	MirrorFolder     string
-	ConvertBitrate   uint
 	ConvertTimeout   time.Duration
 	RefreshInterval  time.Duration
 }
@@ -40,7 +38,10 @@ type Watcher struct {
 	interval  time.Duration
 	mirror    *Mirror
 	converter *Converter
-	Converted chan string
+
+	ConvertStart       chan string
+	ConvertFinishOK    chan string
+	ConvertFinishError chan error
 }
 
 // NewWatcher ...
@@ -61,9 +62,6 @@ func NewWatcher(cfg WatcherConfig) *Watcher {
 		}
 	}
 
-	if cfg.ConvertBitrate == 0 {
-		cfg.ConvertBitrate = DefaultConvertBitrate
-	}
 	if cfg.ConvertTimeout == 0 {
 		cfg.ConvertTimeout = DefaultConvertTimeout
 	}
@@ -79,18 +77,20 @@ func NewWatcher(cfg WatcherConfig) *Watcher {
 		},
 		converter: &Converter{
 			Timeout: cfg.ConvertTimeout,
-			Bitrate: cfg.ConvertBitrate,
 		},
-		Converted: make(chan string),
+		ConvertStart:       make(chan string),
+		ConvertFinishOK:    make(chan string),
+		ConvertFinishError: make(chan error),
 	}
 }
 
 func (w *Watcher) convert(from, to string) error {
-	fmt.Printf("start convert: %s\n", from)
+	w.ConvertStart <- from
 	err := w.converter.Convert(from, to)
-	fmt.Printf("finish convert: %s\n", from)
-	if err != nil {
-		w.Converted <- from
+	if err == nil {
+		w.ConvertFinishOK <- to
+	} else {
+		w.ConvertFinishError <- fmt.Errorf("Convert error: %v", err)
 	}
 	return err
 }
@@ -144,6 +144,7 @@ func (w *Watcher) Run() error {
 			go func(file string) {
 				w.convert(file, w.mirror.Get(file))
 			}(filepath)
+			// w.convert(filepath, w.mirror.Get(filepath))
 		}
 	}()
 

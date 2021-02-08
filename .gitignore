@@ -1,2 +1,6 @@
+/build
 /trayapp/trayapp
 /commandline/commandline
+/commandline/mp3mirror
+/trayapp/trayapp/MP3mirror.app/Contents/MacOS/MP3mirror
+.DS_Store
